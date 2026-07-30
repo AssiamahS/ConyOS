@@ -10,6 +10,9 @@ struct PingDetailSheet: View {
     @State private var replyText = ""
     @State private var sending = false
     @State private var sent = false
+    @State private var question = ""
+    @State private var asking = false
+    @State private var answer: String?
 
     private var canSend: Bool {
         !sending && !replyText.trimmingCharacters(in: .whitespaces).isEmpty
@@ -29,6 +32,7 @@ struct PingDetailSheet: View {
                         if ping.channel == "email" || replyTo.contains("@") {
                             replyCard
                         }
+                        askClaudeCard
                         actionRow
                     }
                     .padding(20)
@@ -111,6 +115,54 @@ struct PingDetailSheet: View {
                 )
             }
             .disabled(!canSend)
+        }
+        .padding(16)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var askClaudeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ASK CLAUDE")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .kerning(1.2)
+            TextField("Research this, draft a reply, what should I do…", text: $question, axis: .vertical)
+                .lineLimit(1...4)
+                .foregroundStyle(.white)
+            Button {
+                let q = question.trimmingCharacters(in: .whitespaces)
+                guard !q.isEmpty, !asking else { return }
+                asking = true
+                answer = nil
+                Task {
+                    answer = await store.ask(ping, question: q)
+                    asking = false
+                }
+            } label: {
+                HStack {
+                    if asking { ProgressView().tint(.white) }
+                    Text(asking ? "Claude is working…" : "Ask")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background(
+                    question.trimmingCharacters(in: .whitespaces).isEmpty || asking
+                        ? AnyShapeStyle(Color.white.opacity(0.1))
+                        : AnyShapeStyle(Cony.gradient),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
+            }
+            .disabled(question.trimmingCharacters(in: .whitespaces).isEmpty || asking)
+            if let a = answer {
+                Text(a)
+                    .font(.subheadline)
+                    .foregroundStyle(.white)
+                    .textSelection(.enabled)
+                    .padding(12)
+                    .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
         }
         .padding(16)
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))

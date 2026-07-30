@@ -79,4 +79,21 @@ final class ConyStore: ObservableObject {
 
     func resolve(_ p: Ping) async { await post("/resolve", body: ["id": p.id]) }
     func snooze(_ p: Ping) async { await post("/snooze", body: ["id": p.id, "hours": 24]) }
+
+    // Claude runs on the Mac; give it minutes, not seconds.
+    func ask(_ p: Ping, question: String) async -> String {
+        do {
+            guard let url = URL(string: serverURL + "/ask") else { return "Bad server URL." }
+            var req = URLRequest(url: url, timeoutInterval: 300)
+            req.httpMethod = "POST"
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["id": p.id, "question": question])
+            let cfg = URLSessionConfiguration.default
+            cfg.timeoutIntervalForResource = 300
+            let (data, _) = try await URLSession(configuration: cfg).data(for: req)
+            let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            return obj?["answer"] as? String ?? obj?["error"] as? String ?? "No answer came back."
+        } catch {
+            return "Couldn't reach Claude on the Mac. Check Tailscale and try again."
+        }
+    }
 }
