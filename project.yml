@@ -8,7 +8,7 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     DEVELOPMENT_TEAM: QGMAWHX827
-    MARKETING_VERSION: 1.0.6
+    MARKETING_VERSION: 1.0.7
     CURRENT_PROJECT_VERSION: 1
 targets:
   ConyOS:
@@ -21,3 +21,4 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.assiamah.conyos
         INFOPLIST_FILE: ConyOS/Resources/Info.plist
         TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
