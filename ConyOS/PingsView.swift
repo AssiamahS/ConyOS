@@ -3,6 +3,7 @@ import SwiftUI
 struct PingsView: View {
     @EnvironmentObject var store: ConyStore
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selected: Ping?
 
     var body: some View {
         ZStack {
@@ -23,6 +24,8 @@ struct PingsView: View {
                     }
                     ForEach(store.pings) { p in
                         PingRow(ping: p)
+                            .contentShape(Rectangle())
+                            .onTapGesture { selected = p }
                     }
                 }
                 .padding(20)
@@ -30,6 +33,7 @@ struct PingsView: View {
             .refreshable { await store.refresh() }
         }
         .task { await store.refresh() }
+        .sheet(item: $selected) { PingDetailSheet(ping: $0) }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.refresh() } }
         }

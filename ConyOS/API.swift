@@ -9,6 +9,7 @@ struct Ping: Codable, Identifiable, Hashable {
     var since: String?
     var status: String
     var hours_waiting: Double?
+    var reply_to: String?
 
     var waitingLabel: String {
         guard let h = hours_waiting else { return "" }
