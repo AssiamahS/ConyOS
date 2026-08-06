@@ -10,12 +10,23 @@ struct Ping: Codable, Identifiable, Hashable {
     var status: String
     var hours_waiting: Double?
     var reply_to: String?
+    var created: String?
 
     var waitingLabel: String {
         guard let h = hours_waiting else { return "" }
         if h >= 48 { return "\(Int((h / 24).rounded()))d waiting" }
         return "\(Int(h.rounded()))h waiting"
     }
+
+    // ticker-style "change badge" text: 17d / 5h / now
+    var ageBadge: String {
+        guard let h = hours_waiting else { return "—" }
+        if h >= 48 { return "\(Int((h / 24).rounded()))d" }
+        if h >= 1 { return "\(Int(h.rounded()))h" }
+        return "now"
+    }
+
+    var symbol: String { channel.uppercased() }
 
     var icon: String {
         switch channel {
@@ -32,6 +43,11 @@ struct Ping: Codable, Identifiable, Hashable {
 
 struct PingsResponse: Codable { var pings: [Ping] }
 
+enum Connection: Equatable {
+    case live(String)      // "CLOUD" / "MAC"
+    case offline(Date?)    // last successful sync, if any
+}
+
 @MainActor
 final class ConyStore: ObservableObject {
     // cloud relay — plain HTTPS, reachable from anywhere, no VPN needed
@@ -42,6 +58,13 @@ final class ConyStore: ObservableObject {
     @Published var pings: [Ping] = []
     @Published var lastError: String?
     @Published var isLoading = false
+    @Published var connection: Connection = .offline(nil)
+    @Published var lastSync: Date?
+
+    init() {
+        loadCache()
+        connection = .offline(lastSync)
+    }
 
     private static let session: URLSession = {
         let cfg = URLSessionConfiguration.default
@@ -56,24 +79,48 @@ final class ConyStore: ObservableObject {
         // right after an action the Mac is authoritative — the cloud copy
         // lags behind by one push
         if preferMac, let fresh = await fetchPings(serverURL + "/pings", key: nil) {
-            pings = fresh
-            lastError = nil
+            apply(fresh, via: "MAC")
             return
         }
         for attempt in 1...2 {
             if let cloud = await fetchPings(cloudURL + "/items", key: ConySecrets.relayKey) {
-                pings = cloud
-                lastError = nil
+                apply(cloud, via: "CLOUD")
                 return
             }
             if let local = await fetchPings(serverURL + "/pings", key: nil) {
-                pings = local
-                lastError = nil
+                apply(local, via: "MAC")
                 return
             }
             if attempt == 1 { try? await Task.sleep(for: .seconds(2)) }
         }
-        lastError = "Offline — couldn't reach cloud sync or the Mac."
+        // no error wall: keep showing the cached list, marked stale
+        connection = .offline(lastSync)
+    }
+
+    private func apply(_ fresh: [Ping], via source: String) {
+        pings = fresh
+        lastError = nil
+        lastSync = Date()
+        connection = .live(source)
+        saveCache()
+    }
+
+    // last-known items live on device so the list always renders,
+    // just marked with how stale it is
+    private func saveCache() {
+        if let data = try? JSONEncoder().encode(pings) {
+            UserDefaults.standard.set(data, forKey: "cachedPings")
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "cachedAt")
+        }
+    }
+
+    private func loadCache() {
+        if let data = UserDefaults.standard.data(forKey: "cachedPings"),
+           let cached = try? JSONDecoder().decode([Ping].self, from: data) {
+            pings = cached
+        }
+        let t = UserDefaults.standard.double(forKey: "cachedAt")
+        if t > 0 { lastSync = Date(timeIntervalSince1970: t) }
     }
 
     private func fetchPings(_ urlString: String, key: String?) async -> [Ping]? {

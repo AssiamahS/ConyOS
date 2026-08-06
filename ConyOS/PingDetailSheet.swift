@@ -22,8 +22,7 @@ struct PingDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [Color(red: 0.08, green: 0.06, blue: 0.1), .black],
-                               startPoint: .top, endPoint: .bottom)
+                Market.canvas
                     .ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -58,14 +57,14 @@ struct PingDetailSheet: View {
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 48, height: 48)
-                .background(Cony.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Market.green, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(ping.who)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.white)
                 Text("\(ping.channel) · \(ping.waitingLabel)")
                     .font(.caption.weight(.medium))
-                    .foregroundStyle((ping.hours_waiting ?? 0) >= 24 ? Cony.coral : Color.secondary)
+                    .foregroundStyle((ping.hours_waiting ?? 0) >= 24 ? Market.red : Color.secondary)
             }
             Spacer()
         }
@@ -110,7 +109,7 @@ struct PingDetailSheet: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 46)
                 .background(
-                    canSend || sent ? AnyShapeStyle(Cony.gradient) : AnyShapeStyle(Color.white.opacity(0.1)),
+                    canSend || sent ? AnyShapeStyle(Market.green) : AnyShapeStyle(Color.white.opacity(0.1)),
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                 )
             }
@@ -150,7 +149,7 @@ struct PingDetailSheet: View {
                 .background(
                     question.trimmingCharacters(in: .whitespaces).isEmpty || asking
                         ? AnyShapeStyle(Color.white.opacity(0.1))
-                        : AnyShapeStyle(Cony.gradient),
+                        : AnyShapeStyle(Market.green),
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                 )
             }
@@ -178,7 +177,7 @@ struct PingDetailSheet: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
-                    .background(Cony.mint.opacity(0.25), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Market.green.opacity(0.25), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             Button {
                 Task { await store.snooze(ping); dismiss() }

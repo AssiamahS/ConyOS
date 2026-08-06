@@ -9,18 +9,19 @@ struct ConyOSApp: App {
             PingsView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
-                .tint(Cony.coral)
+                .tint(Market.green)
         }
     }
 }
 
-enum Cony {
-    // matches the logo: coral-to-orange gradient, white rabbit
-    static let coral = Color(red: 0.95, green: 0.42, blue: 0.36)
-    static let orange = Color(red: 0.97, green: 0.58, blue: 0.31)
-    static let gradient = LinearGradient(
-        colors: [coral, orange],
-        startPoint: .topLeading, endPoint: .bottomTrailing
-    )
-    static let mint = Color(red: 0.35, green: 0.85, blue: 0.65)
+// One coherent system: near-black canvas, market-green as the single accent,
+// market-red reserved for aging/overdue semantics. Numbers are rounded and
+// monospaced-digit everywhere, like a portfolio screen.
+enum Market {
+    static let canvas = Color(red: 0.04, green: 0.04, blue: 0.05)
+    static let card = Color.white.opacity(0.055)
+    static let hairline = Color.white.opacity(0.07)
+    static let green = Color(red: 0.19, green: 0.84, blue: 0.46)
+    static let red = Color(red: 1.0, green: 0.27, blue: 0.23)
+    static let amber = Color(red: 1.0, green: 0.65, blue: 0.15)
 }
