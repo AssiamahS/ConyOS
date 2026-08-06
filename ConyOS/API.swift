@@ -34,6 +34,9 @@ struct PingsResponse: Codable { var pings: [Ping] }
 
 @MainActor
 final class ConyStore: ObservableObject {
+    // cloud relay — plain HTTPS, reachable from anywhere, no VPN needed
+    @AppStorage("cloudURL") var cloudURL = "https://cony-relay.sylvesterassiamahpm.workers.dev"
+    // the Mac on the tailnet — fresher when reachable, required for actions
     @AppStorage("serverURL") var serverURL = "http://100.97.199.99:8797"
 
     @Published var pings: [Ping] = []
@@ -42,26 +45,46 @@ final class ConyStore: ObservableObject {
 
     private static let session: URLSession = {
         let cfg = URLSessionConfiguration.default
-        cfg.waitsForConnectivity = true
-        cfg.timeoutIntervalForResource = 20
+        cfg.timeoutIntervalForRequest = 10
+        cfg.timeoutIntervalForResource = 15
         return URLSession(configuration: cfg)
     }()
 
-    func refresh() async {
+    func refresh(preferMac: Bool = false) async {
         isLoading = true
         defer { isLoading = false }
-        for attempt in 1...3 {
-            do {
-                guard let url = URL(string: serverURL + "/pings") else { throw URLError(.badURL) }
-                let (data, _) = try await Self.session.data(from: url)
-                pings = try JSONDecoder().decode(PingsResponse.self, from: data).pings
+        // right after an action the Mac is authoritative — the cloud copy
+        // lags behind by one push
+        if preferMac, let fresh = await fetchPings(serverURL + "/pings", key: nil) {
+            pings = fresh
+            lastError = nil
+            return
+        }
+        for attempt in 1...2 {
+            if let cloud = await fetchPings(cloudURL + "/items", key: ConySecrets.relayKey) {
+                pings = cloud
                 lastError = nil
                 return
-            } catch {
-                if attempt == 3 { lastError = "Can't reach the Mac. Check Tailscale." }
-                else { try? await Task.sleep(for: .seconds(2)) }
             }
+            if let local = await fetchPings(serverURL + "/pings", key: nil) {
+                pings = local
+                lastError = nil
+                return
+            }
+            if attempt == 1 { try? await Task.sleep(for: .seconds(2)) }
         }
+        lastError = "Offline — couldn't reach cloud sync or the Mac."
+    }
+
+    private func fetchPings(_ urlString: String, key: String?) async -> [Ping]? {
+        guard let url = URL(string: urlString) else { return nil }
+        var req = URLRequest(url: url)
+        if let key { req.setValue(key, forHTTPHeaderField: "x-app-key") }
+        guard let (data, resp) = try? await Self.session.data(for: req),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let decoded = try? JSONDecoder().decode(PingsResponse.self, from: data)
+        else { return nil }
+        return decoded.pings
     }
 
     func post(_ path: String, body: [String: Any]) async {
@@ -71,9 +94,9 @@ final class ConyStore: ObservableObject {
             req.httpMethod = "POST"
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
             _ = try await Self.session.data(for: req)
-            await refresh()
+            await refresh(preferMac: true)
         } catch {
-            lastError = "Change didn't save. Try again."
+            lastError = "Change didn't save — actions need the Mac (Tailscale or home Wi-Fi)."
         }
     }
 
@@ -93,7 +116,7 @@ final class ConyStore: ObservableObject {
             let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
             return obj?["answer"] as? String ?? obj?["error"] as? String ?? "No answer came back."
         } catch {
-            return "Couldn't reach Claude on the Mac. Check Tailscale and try again."
+            return "Couldn't reach Claude — asking needs the Mac (Tailscale or home Wi-Fi)."
         }
     }
 }

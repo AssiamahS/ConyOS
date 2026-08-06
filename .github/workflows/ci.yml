@@ -93,7 +93,14 @@ jobs:
 
       - name: Generate Xcode project
         if: steps.creds.outputs.have == 'true'
+        env:
+          CONY_APP_KEY: ${{ secrets.CONY_APP_KEY }}
         run: |
+          # bake the relay read key into the binary — the public repo only
+          # ever carries the placeholder
+          if [ -n "$CONY_APP_KEY" ]; then
+            sed -i '' "s/__CONY_APP_KEY__/$CONY_APP_KEY/" ConyOS/Secrets.swift
+          fi
           # xcodegen writes CFBundleVersion literally into the generated plists,
           # so the run number has to land in project.yml before generation
           sed -i '' "s/^    CURRENT_PROJECT_VERSION: .*/    CURRENT_PROJECT_VERSION: $GITHUB_RUN_NUMBER/" project.yml
